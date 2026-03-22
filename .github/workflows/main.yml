@@ -1,7 +1,7 @@
 name: Backup Server PocketMine (1 minuto)
 
 on:
-  workflow_dispatch:  # Puedes ejecutarlo manualmente desde la pestaña Actions
+  workflow_dispatch:
 
 jobs:
   backup:
@@ -13,16 +13,14 @@ jobs:
 
       - name: 🔧 Preparar binario PHP y permisos
         run: |
-          # El binario está en bin/php7/bin/php (según la estructura de tu repo)
           chmod +x bin/php7/bin/php 2>/dev/null || true
           chmod +x PocketMine-MP.phar 2>/dev/null || true
-          ls -la bin/php7/bin/  # Para verificar
 
-      - name: ⚙️ Configuración inicial (evita el wizard)
+      - name: ⚙️ Configuración inicial (evita wizard)
         run: |
           mkdir -p worlds plugins players resource_packs logs
           cat > server.properties << 'EOF'
-          server-name=MySoft Server
+          server-name=MySoft Server - Backup GitHub
           gamemode=survival
           difficulty=normal
           spawn-protection=0
@@ -33,30 +31,40 @@ jobs:
 
       - name: 🚀 Iniciar servidor por exactamente 1 minuto
         run: |
-          echo "=== Iniciando PocketMine-MP (con src + binario del repo) ==="
-          
-          # Ejecuta con el binario incluido + flag --no-wizard
+          echo "=== Iniciando PocketMine-MP (src + binario) ==="
           timeout 65s ./bin/php7/bin/php PocketMine-MP.phar --no-wizard --disable-ansi || true
-          
-          echo "=== Servidor apagado después de 60 segundos ==="
+          echo "=== Servidor detenido ==="
+          sleep 5
 
-      - name: 💾 Crear backupserver.tar.gz (todos los archivos + permisos)
+      - name: 🛑 Matar procesos PHP restantes
+        run: pkill -f "php.*PocketMine" || true
+        if: always()
+
+      - name: 💾 Crear backupserver.tar.hz (TODO + permisos)
         run: |
-          echo "Creando backup completo del servidor..."
-          
-          # Incluye: worlds, players, plugins, PocketMine-MP.phar, bin/, configs y TODO
-          # Usa -p para mantener permisos exactos
-          tar -cpzf backupserver.tar.gz \
+          echo "=== Creando backup completo del servidor ==="
+
+          # Copia limpia a carpeta temporal (evita el error "file changed")
+          mkdir -p /tmp/server-backup
+          rsync -a --delete \
             --exclude='.git' \
             --exclude='.github' \
-            --exclude='backupserver.tar.gz' \
-            --exclude='*.log' .
-          
-          echo "✅ Backup creado: backupserver.tar.gz ($(du -h backupserver.tar.gz | cut -f1))"
+            --exclude='logs' \
+            --exclude='crashdumps' \
+            --exclude='*.log' \
+            --exclude='backupserver.tar.hz' \
+            ./ /tmp/server-backup/
 
-      - name: 📤 Subir backup (para descargar fácilmente)
+          # Comprimir desde la copia estática (manteniendo permisos)
+          cd /tmp/server-backup
+          tar -cpzf $GITHUB_WORKSPACE/backupserver.tar.hz .
+
+          echo "✅ Backup creado: backupserver.tar.hz"
+          echo "Tamaño: $(du -h $GITHUB_WORKSPACE/backupserver.tar.hz | cut -f1)"
+
+      - name: 📤 Subir backup (para descargar)
         uses: actions/upload-artifact@v4
         with:
           name: backupserver
-          path: backupserver.tar.gz
+          path: backupserver.tar.hz
           retention-days: 30
