@@ -1,0 +1,62 @@
+name: Backup Server PocketMine (1 minuto)
+
+on:
+  workflow_dispatch:  # Puedes ejecutarlo manualmente desde la pestaña Actions
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: 🔧 Preparar binario PHP y permisos
+        run: |
+          # El binario está en bin/php7/bin/php (según la estructura de tu repo)
+          chmod +x bin/php7/bin/php 2>/dev/null || true
+          chmod +x PocketMine-MP.phar 2>/dev/null || true
+          ls -la bin/php7/bin/  # Para verificar
+
+      - name: ⚙️ Configuración inicial (evita el wizard)
+        run: |
+          mkdir -p worlds plugins players resource_packs logs
+          cat > server.properties << 'EOF'
+          server-name=MySoft Server
+          gamemode=survival
+          difficulty=normal
+          spawn-protection=0
+          max-players=10
+          online-mode=false
+          white-list=false
+          EOF
+
+      - name: 🚀 Iniciar servidor por exactamente 1 minuto
+        run: |
+          echo "=== Iniciando PocketMine-MP (con src + binario del repo) ==="
+          
+          # Ejecuta con el binario incluido + flag --no-wizard
+          timeout 65s ./bin/php7/bin/php PocketMine-MP.phar --no-wizard --disable-ansi || true
+          
+          echo "=== Servidor apagado después de 60 segundos ==="
+
+      - name: 💾 Crear backupserver.tar.gz (todos los archivos + permisos)
+        run: |
+          echo "Creando backup completo del servidor..."
+          
+          # Incluye: worlds, players, plugins, PocketMine-MP.phar, bin/, configs y TODO
+          # Usa -p para mantener permisos exactos
+          tar -cpzf backupserver.tar.gz \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='backupserver.tar.gz' \
+            --exclude='*.log' .
+          
+          echo "✅ Backup creado: backupserver.tar.gz ($(du -h backupserver.tar.gz | cut -f1))"
+
+      - name: 📤 Subir backup (para descargar fácilmente)
+        uses: actions/upload-artifact@v4
+        with:
+          name: backupserver
+          path: backupserver.tar.gz
+          retention-days: 30
