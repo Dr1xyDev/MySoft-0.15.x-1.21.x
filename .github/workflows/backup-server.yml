@@ -31,6 +31,26 @@ jobs:
           echo "✅ PocketMine-MP.phar found"
           ls -lh PocketMine-MP.phar
 
+      - name: 🔐 Fix permissions on PHP binary FIRST
+        run: |
+          echo "🔐 Configurando permisos del binario PHP PRIMERO..."
+          
+          if [ -f "bin/php7/bin/php" ]; then
+            chmod +x bin/php7/bin/php
+            echo "✅ Permisos ejecutables asignados a bin/php7/bin/php"
+            ls -lh bin/php7/bin/php
+          fi
+          
+          if [ -d "bin/php7/bin" ]; then
+            chmod +x bin/php7/bin/* 2>/dev/null || true
+            echo "✅ Permisos ejecutables asignados a todos en bin/php7/bin/"
+          fi
+          
+          if [ -d "bin/php7/lib" ]; then
+            find bin/php7/lib -type f -name "*.so" -exec chmod +x {} \;
+            echo "✅ Permisos ejecutables asignados a .so files"
+          fi
+
       - name: 🔍 Check for compiled PHP binary
         id: check-php
         run: |
@@ -42,26 +62,6 @@ jobs:
             echo "php_found=false" >> $GITHUB_OUTPUT
             echo "⚠️ Using system PHP instead"
             php -v
-          fi
-
-      - name: 🔐 Set permissions on PHP binary
-        run: |
-          echo "🔐 Configurando permisos del binario PHP..."
-          
-          if [ -f "bin/php7/bin/php" ]; then
-            chmod +x bin/php7/bin/php
-            echo "✅ Permisos ejecutables asignados a bin/php7/bin/php"
-            ls -lh bin/php7/bin/php
-          fi
-          
-          if [ -d "bin/php7/bin" ]; then
-            chmod +x bin/php7/bin/*
-            echo "✅ Permisos ejecutables asignados a todos en bin/php7/bin/"
-          fi
-          
-          if [ -d "bin/php7/lib" ]; then
-            find bin/php7/lib -type f -name "*.so" -exec chmod +x {} \;
-            echo "✅ Permisos ejecutables asignados a .so files"
           fi
 
       - name: 📁 Create server directory structure
